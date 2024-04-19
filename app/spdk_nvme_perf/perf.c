@@ -295,6 +295,9 @@ static pthread_mutex_t g_stats_mutex;
 #define MAX_ALLOWED_PCI_DEVICE_NUM 128
 static struct spdk_pci_addr g_allowed_pci_addr[MAX_ALLOWED_PCI_DEVICE_NUM];
 
+#define MAX_SRC_ADDR 256
+static char g_src_addr[MAX_SRC_ADDR];
+
 struct trid_entry {
 	struct spdk_nvme_transport_id	trid;
 	uint16_t			nsid;
@@ -1967,6 +1970,7 @@ usage(char *program_name)
 
 	printf("==== RDMA OPTIONS ====\n\n");
 	printf("\t--transport-tos <val> specify the type of service for RDMA transport. Default: 0 (disabled)\n");
+	printf("\t--src-addr <val> specify the source IP address for RDMA transport. Default: IP address of the first ibv_device\n");
 	printf("\t--rdma-srq-size <val> The size of a shared rdma receive queue. Default: 0 (disabled)\n");
 	printf("\t-k, --keepalive <ms> keep alive timeout period in millisecond\n");
 	printf("\n");
@@ -2502,6 +2506,8 @@ static const struct option g_perf_cmdline_opts[] = {
 	{"use-every-core", no_argument, NULL, PERF_USE_EVERY_CORE},
 #define PERF_NO_HUGE		270
 	{"no-huge", no_argument, NULL, PERF_NO_HUGE},
+#define PERF_SRC_ADDR		271
+	{"src-addr", required_argument, NULL, PERF_SRC_ADDR},
 	/* Should be the last element */
 	{0, 0, 0, 0}
 };
@@ -2768,6 +2774,10 @@ parse_args(int argc, char **argv, struct spdk_env_opts *env_opts)
 		case PERF_NO_HUGE:
 			env_opts->no_huge = true;
 			break;
+		case PERF_SRC_ADDR:
+			memcpy(g_src_addr, optarg, strlen(optarg));
+			fprintf(stderr, "%s\n", g_src_addr);
+			break;
 		default:
 			usage(argv[0]);
 			return 1;
@@ -2963,6 +2973,10 @@ probe_cb(void *cb_ctx, const struct spdk_nvme_transport_id *trid,
 	opts->header_digest = g_header_digest;
 	opts->data_digest = g_data_digest;
 	opts->keep_alive_timeout_ms = g_keep_alive_timeout_in_ms;
+	if(g_src_addr[0]) {
+		memcpy(opts->src_addr, g_src_addr, sizeof(g_src_addr));
+		memcpy(opts->src_svcid, "23", sizeof("23"));
+	}
 	memcpy(opts->hostnqn, trid_entry->hostnqn, sizeof(opts->hostnqn));
 
 	opts->transport_tos = g_transport_tos;
